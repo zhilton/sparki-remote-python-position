@@ -4,7 +4,10 @@
 import serial
 import struct
 import time
-from math import atan2,sin,cos
+from math import atan2,sin,cos,sqrt
+
+def dist(x1, x2, y1,y2):
+	return sqrt((x1-x2)**2 + (y1-y2)**2)
 
 class Sparki:
 
@@ -32,6 +35,7 @@ class Sparki:
 	serialPort = None
 
 	EPS_XY = .05
+	EPS_T = .035
 	curX = curY = curTheta = 0
 
 	def __init__(self, comPort):
@@ -64,41 +68,37 @@ class Sparki:
 		if (self.serialPort.isClosed()):
 			print "Disconnected"
 	
-	def moveForward(self):
+	def moveForward(self, dist = 0):
 		# Should be open port
-		self.serialPort.write(self.MOVE_FORWARD)
-
-	def moveForwardDist(self, dist):
-		# Should be open port
-		self.serialPort.write(self.MOVE_FORWARD_DIST)
-		self.serialPort.write(struct.pack('f',dist))
+		if (dist == 0):
+			self.serialPort.write(self.MOVE_FORWARD)
+		else:
+			self.serialPort.write(self.MOVE_FORWARD_DIST)
+			self.serialPort.write(struct.pack('f',dist))
 	
-	def moveBackward(self):
+	def moveBackward(self, dist = 0):
 		# Should be open port
-		self.serialPort.write(self.MOVE_BACKWARD)
+		if (dist == 0):
+			self.serialPort.write(self.MOVE_BACKWARD)
+		else:
+			self.serialPort.write(self.MOVE_BACKWORD_DIST)
+			self.serialPort.write(struct.pack('f',dist))
 
-	def moveBackwardDist(self, dist):
+	def moveLeft(self, deg = 0):
 		# Should be open port
-		self.serialPort.write(self.MOVE_BACKWARD_DIST)
-		self.serialPort.write(struct.pack('f',dist))
-	
-	def moveLeft(self):
-		# Should be open port
-		self.serialPort.write(self.MOVE_LEFT)
+		if (deg == 0):
+			self.serialPort.write(self.MOVE_LEFT)
+		else:
+			self.serialPort.write(self.MOVE_LEFT_DEG)
+			self.serialPort.write(struct.pack('f',deg))
 
-	def moveLeftDeg(self, deg):
+	def moveRight(self, deg = 0):
 		# Should be open port
-		self.serialPort.write(self.MOVE_LEFT_DEG)
-		self.serialPort.write(struct.pack('f',deg))
-	
-	def moveRight(self):
-		# Should be open port
-		self.serialPort.write(self.MOVE_RIGHT)
-
-	def moveRightDeg(self, deg):
-		# Should be open port
-		self.serialPort.write(self.MOVE_RIGHT_DEG)
-		self.serialPort.write(struct.pack('f',deg))
+		if (deg == 0):
+			self.serialPort.write(self.MOVE_RIGHT)
+		else:
+			self.serialPort.write(self.MOVE_RIGHT_DEG)
+			self.serialPort.write(struct.pack('f',deg))
 	
 	def moveStop(self):
 		# Should be open port
@@ -138,11 +138,11 @@ class Sparki:
 
 	def updatePosition(self):
 		self.serialPort.write(self.REQ_POS)
-		pos = self.serialPort.read(size=12)
-		retValues = struct.unpack("fff", pos)
-		curX = retValues[0]
-		curY = retValues[1]
-		curTheta = retValues[2]
+		pos = self.readString().split()
+		print pos
+		self.curX = pos[0]
+		self.curY = pos[1]
+		self.curTheta = pos[2]
 
 	
 	"""
@@ -180,20 +180,24 @@ class Sparki:
 		# Should validate time is int in milliseconds
 		time.sleep(time/1000)
 
-	def go_to(x, y):
-		if (abs(sparki.curX - x) < EPS_XY  and abs(sparki.curY - y) < EPS_XY ): # Check if at goal
-			moveStop()
+	def go_to(self, x, y):
+		if (abs(self.curX - x) < self.EPS_XY  and abs(self.curY - y) < self.EPS_XY ): # Check if at goal
+			self.moveStop()
 			return True
 		else: # Move toward goal
-			phi = atan2(y - sparki.curY, x - sparki.curX); # bearing of goal
-			delta_theta = atan2(sin(phi - sparki.curTheta),cos(phi - sparki.curTheta)) # signed difference between bearing and goal
-			if (abs(delta_theta) < EPS_T): # if facing goal -> move forward
-				moveForward()
+			phi = atan2(y - self.curY, x - self.curX); # bearing of goal
+			delta_theta = atan2(sin(phi - self.curTheta),cos(phi - self.curTheta)) # signed difference between bearing and goal
+			if (abs(delta_theta) < self.EPS_T): # if facing goal -> move forward
+				self.moveForward(dist(x,self.curX,y,self.curY))
 			elif (delta_theta > 0): # else turn toward goal
-				moveLeft()
+				self.moveLeft()
 			else:
-				moveRight()
+				self.moveRight()
+		self.updatePosition()
 		return False;
+
+	def printPos(self):
+		print self.curX,self.curY,self.curTheta
 
 	def readLandmark():
 		sense = sparki.lineSense()

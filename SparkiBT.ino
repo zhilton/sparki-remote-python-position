@@ -51,28 +51,12 @@ void writePosition() {
   float x = p.getCenter().x;
   float y = p.getCenter().y;
   float angle = p.getAngle();
-  char* xbytes = (char* ) &x;
-  char* ybytes = (char* ) &y;
-  char* abytes = (char* ) &angle; 
-  for (int i=3; i>=0; i--) {
-    Serial1.write(xbytes[i]);
-  }
-  for (int i=3; i>=0; i--) {
-    Serial1.write(ybytes[i]);
-  }
-  for (int i=3; i>=0; i--) {
-    Serial1.write(abytes[i]);
-  }
-}
-
-float unpackFloat(const void *buf) {
-    const unsigned char *b = (const unsigned char *)buf;
-    uint32_t temp = 0;
-    temp = ((b[0] << 24) |
-            (b[1] << 16) |
-            (b[2] <<  8) |
-             b[3]);
-    return *((float *) temp);
+  Serial1.print(x);
+  Serial1.print(" ");
+  Serial1.print(y);
+  Serial1.print(" ");
+  Serial1.print(angle);
+  Serial1.print("*");
 }
 
 void loop()
@@ -95,12 +79,11 @@ void loop()
         {
           float dist = 0;
           sparki.print("MOVE_FORWARD_DIST: ");
-          while(!Serial1.available());
           char* distbytes = (char* ) &dist;
-          for (int i=3; i>=0; i--) {
+          for (int i=0; i<=3; i++) {
+            while(!Serial1.available());
             distbytes[i] = Serial1.read();
           }
-          dist = unpackFloat(distbytes);
           sparki.println(dist);
           sparki.updateLCD();
           sparki.moveForward(dist);
@@ -115,12 +98,11 @@ void loop()
         {
           float dist = 0;
           sparki.print("MOVE_BACKWORD_DIST: ");
-          while(!Serial1.available());
           char* distbytes = (char* ) &dist;
-          for (int i=3; i>=0; i--) {
+          for (int i=0; i<=3; i++) {
+            while(!Serial1.available());
             distbytes[i] = Serial1.read();
           }
-          dist = unpackFloat(distbytes);
           sparki.println(dist);
           sparki.updateLCD();
           sparki.moveBackward(dist);
@@ -135,12 +117,11 @@ void loop()
         {
           float deg = 0;
           sparki.print("MOVE_LEFT_DEG: ");
-          while(!Serial1.available());
           char* degbytes = (char* ) &deg;
-          for (int i=3; i>=0; i--) {
+          for (int i=0; i<=3; i++) {
+            while(!Serial1.available());
             degbytes[i] = Serial1.read();
           }
-          deg = unpackFloat(degbytes);
           sparki.println(deg);
           sparki.updateLCD();
           sparki.moveLeft(deg);
@@ -155,12 +136,11 @@ void loop()
         {
           float deg = 0;
           sparki.print("MOVE_RIGHT_DEG: ");
-          while(!Serial1.available());
           char* degbytes = (char* ) &deg;
-          for (int i=3; i>=0; i--) {
+          for (int i=0; i<=3; i++) {
+            while(!Serial1.available());
             degbytes[i] = Serial1.read();
           }
-          deg = unpackFloat(degbytes);
           sparki.println(deg);
           sparki.updateLCD();
           sparki.moveRight(deg);
