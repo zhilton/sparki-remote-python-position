@@ -198,31 +198,3 @@ class Sparki:
 
 	def printPos(self):
 		print self.curX,self.curY,self.curTheta
-
-	def readLandmark():
-		sense = sparki.lineSense()
-		if (sense[0] == 1 and sense[4] != 1): # turn left
-			while (sense[4] != 1):
-				turnLeft()
-				sense = lineSense()
-		elif (sense[0] != 1 and sense[4] == 1): # turn right
-			while (sense[0] != 1):
-				turnRight()
-				sense = lineSense()
-		# move towards center counting rings
-		count = 0
-		on_ring = False
-		pos = curX, curY
-		while (dist(curX, pos[0], curY, pos[1]) < .07): # haven't hit center of barcode
-			sense = lineSense()
-			if (sense[2] == 1 and on_ring == False):
-				count += 1
-				on_ring = True
-			elif (sense[2] == 0 and on_ring == True):
-				on_ring = False
-			moveForward()
-		# At center of barcode
-		while (sense[2] != 1):
-			moveLeft()
-			sense = lineSense()
-		return count
