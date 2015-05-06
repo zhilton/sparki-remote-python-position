@@ -62,6 +62,9 @@ void PositionTracker::setCenter(point newCenter) {
     currentOrientation.v1.y += shift.y;
     currentOrientation.v2.x += shift.x;
     currentOrientation.v2.y += shift.y;
+    int curTravel[2] = {sparki.totalTravel(0), sparki.totalTravel(1)};
+    lastTravel[0] = curTravel[0];
+    lastTravel[1] = curTravel[1];
 }
 
 void PositionTracker::setAngle(float newAngle) {
@@ -71,4 +74,7 @@ void PositionTracker::setAngle(float newAngle) {
     currentOrientation.v1.y = center.y + towheel.y;
     currentOrientation.v2.x = center.x - towheel.x;
     currentOrientation.v2.y = center.y - towheel.y;
+    int curTravel[2] = {sparki.totalTravel(0), sparki.totalTravel(1)};
+    lastTravel[0] = curTravel[0];
+    lastTravel[1] = curTravel[1];
 }
