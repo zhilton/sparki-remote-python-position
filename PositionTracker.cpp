@@ -1,10 +1,10 @@
 #include "PositionTracker.h"
 
 PositionTracker::PositionTracker() {
-  currentOrientation.v1.x = -TRACK_WIDTH_CM/2;
-  currentOrientation.v1.y = 0;
-  currentOrientation.v2.x = TRACK_WIDTH_CM/2;
-  currentOrientation.v2.y = 0;
+  currentOrientation.v1.y = TRACK_WIDTH_CM/2;
+  currentOrientation.v1.x = 0;
+  currentOrientation.v2.y = -TRACK_WIDTH_CM/2;
+  currentOrientation.v2.x = 0;
   lastTravel[0] = 0;
   lastTravel[1] = 0;
 }
@@ -51,6 +51,6 @@ point PositionTracker::getCenter() {
 }
 
 float PositionTracker::getAngle() {
-  return atan2(currentOrientation.v2.y - currentOrientation.v1.y,
-               currentOrientation.v2.x - currentOrientation.v1.x);
+  return atan2(currentOrientation.v2.x - currentOrientation.v1.x,
+               currentOrientation.v1.y - currentOrientation.v2.y);
 }
