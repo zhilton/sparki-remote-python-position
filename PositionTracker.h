@@ -21,6 +21,8 @@ class PositionTracker {
     orientation getOrientation();
     point getCenter();
     float getAngle();
+    void setCenter(point newCenter);
+    void setAngle(float newAngle);
   private:
     static orientation updateFunction(orientation o, int left, int right);
     orientation currentOrientation;

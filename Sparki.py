@@ -17,7 +17,7 @@ class Sparki:
 	
 	STATUS_OK = struct.pack('!B',0)
 	MOVE_FORWARD = struct.pack('!B',1)
-	MOVE_BACKWARD = struct.pack('!B',2)
+	#MOVE_BACKWARD = struct.pack('!B',2)
 	MOVE_LEFT = struct.pack('!B',3)
 	MOVE_RIGHT = struct.pack('!B',4)
 	SERVO = struct.pack('!B',5)
@@ -27,7 +27,7 @@ class Sparki:
 	REQ_LINESENS = struct.pack('!B',9)
 	MOVE_FORWARD_DIST = struct.pack('!B',10)
 	REQ_POS = struct.pack('!B',11)
-	MOVE_BACKWORD_DIST = struct.pack('!B',12)
+	#MOVE_BACKWORD_DIST = struct.pack('!B',12)
 	MOVE_RIGHT_DEG = struct.pack('!B',13)
 	MOVE_LEFT_DEG = struct.pack('!B',14)
 
@@ -76,6 +76,7 @@ class Sparki:
 			self.serialPort.write(self.MOVE_FORWARD_DIST)
 			self.serialPort.write(struct.pack('f',dist))
 	
+    '''
 	def moveBackward(self, dist = 0):
 		# Should be open port
 		if (dist == 0):
@@ -83,6 +84,7 @@ class Sparki:
 		else:
 			self.serialPort.write(self.MOVE_BACKWORD_DIST)
 			self.serialPort.write(struct.pack('f',dist))
+    '''
 
 	def moveLeft(self, deg = 0):
 		# Should be open port
@@ -176,9 +178,9 @@ class Sparki:
 			output = output + last
 		return output
 	
-	def delay(self, time):
+	def delay(self, duration):
 		# Should validate time is int in milliseconds
-		time.sleep(time/1000)
+		time.sleep(duration/1000)
 
 	def go_to(self, x, y):
 		if (abs(self.curX - x) < self.EPS_XY  and abs(self.curY - y) < self.EPS_XY ): # Check if at goal
