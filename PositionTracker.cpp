@@ -54,3 +54,21 @@ float PositionTracker::getAngle() {
   return atan2(currentOrientation.v2.x - currentOrientation.v1.x,
                currentOrientation.v1.y - currentOrientation.v2.y);
 }
+
+void PositionTracker::setCenter(point newCenter) {
+    point oldCenter = getCenter();
+    point shift = { newCenter.x - oldCenter.x, newCenter.y - oldCenter.y };
+    currentOrientation.v1.x += shift.x;
+    currentOrientation.v1.y += shift.y;
+    currentOrientation.v2.x += shift.x;
+    currentOrientation.v2.y += shift.y;
+}
+
+void PositionTracker::setAngle(float newAngle) {
+    point center = getCenter();
+    point towheel = { -sin(newAngle)*TRACK_WIDTH_CM/2, cos(newAngle)*TRACK_WIDTH_CM/2 };
+    currentOrientation.v1.x = center.x + towheel.x;
+    currentOrientation.v1.y = center.y + towheel.y;
+    currentOrientation.v2.x = center.x - towheel.x;
+    currentOrientation.v2.y = center.y - towheel.y;
+}
