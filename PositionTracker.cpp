@@ -41,10 +41,6 @@ void PositionTracker::update() {
   lastTravel[1] = curTravel[1];
 }
 
-orientation PositionTracker::getOrientation() {
-  return currentOrientation;
-}
-
 point PositionTracker::getCenter() {
   point p = {(currentOrientation.v1.x + currentOrientation.v2.x)/2, (currentOrientation.v1.y + currentOrientation.v2.y)/2};
   return p;
