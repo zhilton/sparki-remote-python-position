@@ -4,9 +4,12 @@
 import serial
 import struct
 import time
-from math import atan2,sin,cos,sqrt
+from math import atan2,sin,cos,sqrt,pi
+from evidencegrid import EvidenceGrid
+import window
+from multiprocessing import Process, Manager
 
-def dist(x1, x2, y1,y2):
+def dist(x1, y1, x2, y2):
 	return sqrt((x1-x2)**2 + (y1-y2)**2)
 
 class Sparki:
@@ -17,26 +20,32 @@ class Sparki:
 	
 	STATUS_OK = struct.pack('!B',0)
 	MOVE_FORWARD = struct.pack('!B',1)
-	#MOVE_BACKWARD = struct.pack('!B',2)
-	MOVE_LEFT = struct.pack('!B',3)
-	MOVE_RIGHT = struct.pack('!B',4)
-	SERVO = struct.pack('!B',5)
-	REQ_PING = struct.pack('!B',6)
-	REQ_WHEELS = struct.pack('!B',7)
-	MOVE_STOP = struct.pack('!B',8)
-	REQ_LINESENS = struct.pack('!B',9)
-	MOVE_FORWARD_DIST = struct.pack('!B',10)
-	REQ_POS = struct.pack('!B',11)
-	#MOVE_BACKWORD_DIST = struct.pack('!B',12)
-	MOVE_RIGHT_DEG = struct.pack('!B',13)
-	MOVE_LEFT_DEG = struct.pack('!B',14)
+	MOVE_LEFT = struct.pack('!B',2)
+	MOVE_RIGHT = struct.pack('!B',3)
+	SERVO = struct.pack('!B',4)
+	REQ_PING = struct.pack('!B',5)
+	REQ_WHEELS = struct.pack('!B',6)
+	MOVE_STOP = struct.pack('!B',7)
+	REQ_LINESENS = struct.pack('!B',8)
+	MOVE_FORWARD_DIST = struct.pack('!B',9)
+	REQ_POS = struct.pack('!B',10)
+	MOVE_RIGHT_DEG = struct.pack('!B',11)
+	MOVE_LEFT_DEG = struct.pack('!B',12)
+	SENSE = struct.pack('!B',13)
+	UPDATE_POSE = struct.pack('!B',14)
+	REQ_3PING = struct.pack('!B',15)
 
 	portName = None
 	serialPort = None
 
-	EPS_XY = .05
+	EPS_XY = .1
 	EPS_T = .035
+	RAD_TO_DEG = 57.2957786
+	LM_DIST = 5
 	curX = curY = curTheta = 0
+
+	lm = [] # array to store landmarks
+	grid = EvidenceGrid(0.01, 512, 512) #evidence grid
 
 	def __init__(self, comPort):
 		# Error check if comPort is a string
@@ -76,7 +85,6 @@ class Sparki:
 			self.serialPort.write(self.MOVE_FORWARD_DIST)
 			self.serialPort.write(struct.pack('f',dist))
 	
-    '''
 	def moveBackward(self, dist = 0):
 		# Should be open port
 		if (dist == 0):
@@ -84,7 +92,6 @@ class Sparki:
 		else:
 			self.serialPort.write(self.MOVE_BACKWORD_DIST)
 			self.serialPort.write(struct.pack('f',dist))
-    '''
 
 	def moveLeft(self, deg = 0):
 		# Should be open port
@@ -141,10 +148,9 @@ class Sparki:
 	def updatePosition(self):
 		self.serialPort.write(self.REQ_POS)
 		pos = self.readString().split()
-		print pos
-		self.curX = pos[0]
-		self.curY = pos[1]
-		self.curTheta = pos[2]
+		self.curX = float(pos[0])
+		self.curY = float(pos[1])
+		self.curTheta = float(pos[2])
 
 	
 	"""
@@ -182,21 +188,83 @@ class Sparki:
 		# Should validate time is int in milliseconds
 		time.sleep(duration/1000)
 
-	def go_to(self, x, y):
-		if (abs(self.curX - x) < self.EPS_XY  and abs(self.curY - y) < self.EPS_XY ): # Check if at goal
-			self.moveStop()
-			return True
-		else: # Move toward goal
+	"""
+	Stops sparki, collects and sends
+	all three ping reads to the evidence grid.
+	"""	
+	def dataCollandSend(self):
+		# Request data from sparki to add to map
+		# Req3Ping returns 3 pings (-90,0,90) and the position
+		# Also stops sparki
+		self.serialPort.write(self.REQ_3PING);
+		# 0-2 are ping values, followed by X, Y, theta.
+		valpos = self.readString().split();
+		for x in xrange(len(valpos)):
+			valpos[x] = float(valpos[x])
+		thetachange = -(pi);
+		# Send all three values to evidence grid.
+		for x in xrange(0,3):
+			if valpos[x] != -1:
+				self.grid.observe_something(valpos[x],(thetachange + valpos[5]), valpos[3], valpos[4]);
+			else: 
+				self.grid.observe_nothing((thetachange + valpos[5]), valpos[3], valpos[4]);
+			thetachange += pi;	
+
+		
+	def goTo(self, x, y):
+		while (abs(self.curX - x) > self.EPS_XY or abs(self.curY - y) > self.EPS_XY):
+			
+			
+			self.dataCollandSend();
+			
+			# Move on to goto
+			self.serialPort.write(self.SENSE) # try and detect landmark
+			retValue = int(self.readString())
+			if (retValue == 1): # landmark sensed
+				# do "slam"
+				self.updatePosition()
+				self.slam(self.curX, self.curY, self.curTheta)
+				# turn towards goal and move out of landmark
+				phi = atan2(y - self.curY, x - self.curX); 
+				delta_theta = atan2(sin(phi - self.curTheta),cos(phi - self.curTheta)) 
+				if (abs(delta_theta) > self.EPS_T): 
+					self.moveLeft(delta_theta*self.RAD_TO_DEG)
+				self.moveForward(7)
+				self.updatePosition()
 			phi = atan2(y - self.curY, x - self.curX); # bearing of goal
 			delta_theta = atan2(sin(phi - self.curTheta),cos(phi - self.curTheta)) # signed difference between bearing and goal
 			if (abs(delta_theta) < self.EPS_T): # if facing goal -> move forward
-				self.moveForward(dist(x,self.curX,y,self.curY))
-			elif (delta_theta > 0): # else turn toward goal
-				self.moveLeft()
+				self.moveForward()
 			else:
-				self.moveRight()
-		self.updatePosition()
-		return False;
+				self.moveLeft(delta_theta*self.RAD_TO_DEG)
+			self.updatePosition()
+			print self.lm
+		self.moveStop()
 
-	def printPos(self):
-		print self.curX,self.curY,self.curTheta
+	def sendSparkiPos(self, x, y, theta):
+		self.serialPort.write(self.UPDATE_POSE)
+		self.serialPort.write(struct.pack('f',tmp_x))
+		self.serialPort.write(struct.pack('f',tmp_y))
+		self.serialPort.write(struct.pack('f',tmp_theta))
+
+	def slam(self, x, y, theta):
+		# match up landmark
+		lm_found = False
+		for lm in self.lm:
+			if dist(x,y,lm[0],lm[1]) < self.LM_DIST: # found match update sparki/lm position
+				# compute weighted avg based on number of time landmark has been observed
+				tmp_x = (1.0 / (1 + lm[3]))*self.curX + (float(lm[3]) / (1 + lm[3]))*lm[0]
+				tmp_y = (1.0 / (1 + lm[3]))*self.curY + (float(lm[3]) / (1 + lm[3]))*lm[1]
+				tmp_theta = (1.0 / (1 + lm[3]))*self.curTheta + (float(lm[3]) / (1 + lm[3]))*lm[2]
+				# update x,y,theta on Sparki
+				self.sendSparkiPos(tmp_x, tmp_y, tmp_theta)
+				# update x,y,theta of landmark
+				lm[0] = tmp_x
+				lm[1] = tmp_y
+				lm[2] = tmp_theta
+				# update number of times lm has been seen
+				lm[3] += 1
+				lm_found = True
+				break
+		if not lm_found:
+			self.lm.append([x,y,theta,1]) # add x,y,theta to landmarks and inital number of times seen (1)
