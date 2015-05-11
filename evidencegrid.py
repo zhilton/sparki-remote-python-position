@@ -1,5 +1,59 @@
+import sys
 import math
 import numpy as np
+from multiprocessing import Process, Manager
+try:
+    from Queue import Empty
+    import Tkinter as tkinter
+except:
+    from queue import Empty
+    import tkinter
+from PIL import Image, ImageTk
+
+
+def launch(scale, width, height, observation_queue):
+    """
+    Monitors a queue for observations. When an observation comes in the evidence
+    grid and gui are both updated. An observation put into the queue can be
+    - An observation of nothing: a 3-tuple of (angle, sparki_x, sparki_y)
+    - An observation of something: a 4-tuple of (dist, angle, sparki_x, sparki_y)
+    Anything else will trigger an Exception.
+
+    Params:
+        scale: the scale of the map in meters per pixel.
+        width: the width of the evidence grid in tiles.
+        height: the height of the evidence grid in tiles.
+        observation_queue: for the love of god pass a multiprocessing.Manager().Queue().
+    """
+    proc = Process(target=_launch_helper, args=(scale, width, height, observation_queue))
+    proc.start()
+
+
+def _launch_helper(scale, width, height, observation_queue):
+    man = Manager()
+    draw_queue = man.Queue()
+    draw_queue.put(np.ones((height, width))*60) # initialize with odds of 1
+    exit_event = man.Event()
+    window_proc = Process(target=create_window, args=(scale, draw_queue, exit_event))
+    window_proc.start()
+    grid = EvidenceGrid(scale, width, height)
+    draw_queue.put(grid.oddsarray)
+
+    # get observation, update grid, update gui, in a cycle.
+    while not exit_event.is_set():
+        try:
+            # make sure we keep looping to check for exit event
+            obs = observation_queue.get(timeout=1)
+            if len(obs) == 3:
+                grid.observe_nothing(*obs)
+            elif len(obs) == 4:
+                grid.observe_something(*obs)
+            else:
+                raise Exception("bad observation")
+            draw_queue.put(grid.oddsarray)
+        except Empty:
+            pass
+
 
 # field of view of the ultrasonic sensor is about 15 degrees
 ultrasonic_fov = 15 * (np.pi / 180)
@@ -116,3 +170,39 @@ class EvidenceGrid:
         relative_y = self.scale*y - origin_y
         relative_x = self.scale*x - origin_x
         return (relative_y, relative_x)
+
+
+def create_window(scale, draw_queue, exit_event):
+    """
+    Create a window that draw whatever evidence grid data comes through the
+    queue.
+    """
+    root = tkinter.Tk()
+    label = tkinter.Label(root)
+    label.pack()
+    root.after(0, update_window, root, label, draw_queue)
+    def exit_callback():
+        exit_event.set()
+        sys.exit()
+    root.protocol("WM_DELETE_WINDOW", exit_callback)
+    root.mainloop()
+
+
+def update_window(root, label, q):
+    """Used internally to update from the draw queue"""
+    newodds = None
+    while True:
+        try:
+            newodds = q.get_nowait()
+        except Empty:
+            break
+    if not newodds is None:
+        darknesses = (1 - newodds / (newodds + 1)) * 255
+        darknesses = darknesses.astype(np.int8, copy=False)
+        darknesses = np.flipud(darknesses)
+        img = Image.fromarray(darknesses, 'L')
+        imgTk = ImageTk.PhotoImage(img)
+        label.configure(image=imgTk)
+        label.image = imgTk
+
+    root.after(10, update_window, root, label, q)
