@@ -27,8 +27,8 @@ Make some random goals to begin with, one for each Sparki in practice
 """
 def generateInitGoals( number ):
 	for i in xrange(0, number):
-		randX = random.choice([1,-1]) * random.random() * MAX_GRID_SIZE
-		randY = random.choice([1,-1]) * random.random() * MAX_GRID_SIZE
+		randX = random.uniform(-MAX_GRID_SIZE, MAX_GRID_SIZE)
+		randY = random.uniform(-MAX_GRID_SIZE, MAX_GRID_SIZE)
 		goals.put((randX, randY),True)
 
 """
