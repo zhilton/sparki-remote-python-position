@@ -18,7 +18,6 @@ class PositionTracker {
   public:
     PositionTracker();
     void update();
-    orientation getOrientation();
     point getCenter();
     float getAngle();
     void setCenter(point newCenter);
