@@ -1,6 +1,7 @@
 import sys
 import math
 import numpy as np
+import math
 from multiprocessing import Process, Manager
 try:
     from Queue import Empty
@@ -57,6 +58,25 @@ def _launch_helper(scale, width, height, observation_queue):
 
 # field of view of the ultrasonic sensor is about 15 degrees
 ultrasonic_fov = 15 * (np.pi / 180)
+# the maximum range of the ultrasonic sensor in meters
+max_range = 2
+
+
+def sensor_model_nothing(x, y, angle):
+    """
+    The sensor model for observing nothing.
+
+    \   * / x: horizontal
+     \   /  y: vertical
+      \ /   angle: how this figure it rotated
+       o
+
+    The returned value is at most 1 (since it reduces the odds)
+    """
+    dev = ultrasonic_fov/4
+    # a gaussian with a peak value of 1 and mean of 0
+    gauss = 1 - .5*math.exp(-(x*x)/(2*dev*dev))
+    return gauss
 
 
 class EvidenceGrid:
@@ -98,12 +118,13 @@ class EvidenceGrid:
 
 
     def _observe(self, observed_something, dist, angle, sparki_x, sparki_y):
+        angle = math.atan2(math.sin(angle), math.cos(angle)) # wrap angle from -pi to pi.
+
         # the left and right limits of sparki's ultrasonic sensor
         left_limit = angle + ultrasonic_fov/2
         right_limit = angle - ultrasonic_fov/2
 
         # think of the triangle that encloses the sector
-        max_range = 2
         triangle_hyp = max_range / math.cos(ultrasonic_fov/2)
         # one triangle point is sparki's center, here are the other two
         # (left and right are from sparki's perspective)
@@ -136,18 +157,22 @@ class EvidenceGrid:
 
                 # the default 1 means the odds are unmodified.
                 odds = 1
-                if right_limit <= t_angle <= left_limit:
+                relative_angle = math.atan2(math.sin(t_angle - angle), math.cos(t_angle - angle))
+                # checking if an angle is between two others is ugly
+                if right_limit <= t_angle <= left_limit or \
+                   right_limit <= t_angle+2*math.pi <= left_limit or \
+                   right_limit <= t_angle-2*math.pi <= left_limit:
                     if observed_something:
                         # 4 cm band of high obstacle odds at the end of vision
                         if dist - 0.04 <= t_dist <= dist + 0.04:
                             odds = 1.5
                         # decreased odds for anywhere closer
                         elif t_dist <= dist - 0.04:
-                            odds = 0.5
+                            odds = sensor_model_nothing(relative_angle, t_dist, ultrasonic_fov/4)
                     else:
                         # observed nothing so decrease odds.
                         if t_dist <= max_range:
-                            odds = 0.5
+                            odds = sensor_model_nothing(relative_angle, t_dist, ultrasonic_fov/4)
                  
                 self.oddsarray[y, x] *= odds
 
