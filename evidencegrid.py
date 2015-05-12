@@ -62,21 +62,43 @@ ultrasonic_fov = 15 * (np.pi / 180)
 max_range = 2
 
 
-def sensor_model_nothing(angle, y):
+def normedgaussian(x, dev):
+    """A gaussian that peaks at 1"""
+    return math.exp(-(x*x)/(2*dev*dev))
+
+
+
+def sensor_model_something(dist, angle, dist_t):
+    """
+    The sensor model for observing something.
+    """
+    # for every 1 m of distance add +/- 5 cm uncertainty
+    dev = 0.05*dist
+    ddiff = dist - dist_t
+    adev = ultrasonic_fov/4
+
+    if dist_t > dist + dev:
+        odds = 1
+    else:
+        n = sensor_model_nothing(angle, dist_t)
+        intensity = 1.8 - dist/max_range
+        odds = n + intensity * normedgaussian(angle, adev) * normedgaussian(ddiff, dev)
+    return odds
+
+
+def sensor_model_nothing(angle, dist_t):
     """
     The sensor model for observing nothing.
 
     \   * / 
      \   /  angle: the angle that the * is at from the o.
-      \ /   y: vertical
+      \ /   dist_t: euclidean distance the * is at from the o.
        o
 
     The returned value is at most 1 (since it reduces the odds)
     """
     dev = ultrasonic_fov/4
-    # a scaled gaussian with minimum at 0.5, peak at 1.
-    gauss = 1 - .5*math.exp(-(angle*angle)/(2*dev*dev))
-    return gauss
+    return 1 - .5*normedgaussian(angle, dev)
 
 
 class EvidenceGrid:
@@ -163,12 +185,7 @@ class EvidenceGrid:
                    right_limit <= t_angle+2*math.pi <= left_limit or \
                    right_limit <= t_angle-2*math.pi <= left_limit:
                     if observed_something:
-                        # 4 cm band of high obstacle odds at the end of vision
-                        if dist - 0.04 <= t_dist <= dist + 0.04:
-                            odds = 1.5
-                        # decreased odds for anywhere closer
-                        elif t_dist <= dist - 0.04:
-                            odds = sensor_model_nothing(relative_angle, t_dist)
+                        odds = sensor_model_something(dist, relative_angle, t_dist)
                     else:
                         # observed nothing so decrease odds.
                         if t_dist <= max_range:
