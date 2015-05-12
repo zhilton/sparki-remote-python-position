@@ -62,20 +62,20 @@ ultrasonic_fov = 15 * (np.pi / 180)
 max_range = 2
 
 
-def sensor_model_nothing(x, y, angle):
+def sensor_model_nothing(angle, y):
     """
     The sensor model for observing nothing.
 
-    \   * / x: horizontal
-     \   /  y: vertical
-      \ /   angle: how this figure it rotated
+    \   * / 
+     \   /  angle: the angle that the * is at from the o.
+      \ /   y: vertical
        o
 
     The returned value is at most 1 (since it reduces the odds)
     """
     dev = ultrasonic_fov/4
-    # a gaussian with a peak value of 1 and mean of 0
-    gauss = 1 - .5*math.exp(-(x*x)/(2*dev*dev))
+    # a scaled gaussian with minimum at 0.5, peak at 1.
+    gauss = 1 - .5*math.exp(-(angle*angle)/(2*dev*dev))
     return gauss
 
 
@@ -168,11 +168,11 @@ class EvidenceGrid:
                             odds = 1.5
                         # decreased odds for anywhere closer
                         elif t_dist <= dist - 0.04:
-                            odds = sensor_model_nothing(relative_angle, t_dist, ultrasonic_fov/4)
+                            odds = sensor_model_nothing(relative_angle, t_dist)
                     else:
                         # observed nothing so decrease odds.
                         if t_dist <= max_range:
-                            odds = sensor_model_nothing(relative_angle, t_dist, ultrasonic_fov/4)
+                            odds = sensor_model_nothing(relative_angle, t_dist)
                  
                 self.oddsarray[y, x] *= odds
 
