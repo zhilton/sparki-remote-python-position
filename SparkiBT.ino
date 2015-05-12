@@ -274,8 +274,7 @@ void loop()
         }
       default:
         break;
-    }
-    
+    }   
 	p.update();
   }
 }
