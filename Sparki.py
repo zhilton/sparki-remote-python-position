@@ -208,22 +208,24 @@ class Sparki:
 		valpos[5] = float(valpos[5])
 		thetachange = pi/2;
 		# Send all three values to evidence grid.
-		print valpos
 		for x in xrange(0,3):
 			if valpos[x] != -1:
 				self.q.put((valpos[x],(thetachange + valpos[5]), valpos[3], valpos[4]))
-				print valpos[x],(thetachange + valpos[5]), valpos[3], valpos[4]
 			else: 
 				self.q.put(((thetachange + valpos[5]), valpos[3], valpos[4]))
-				print (thetachange + valpos[5]), valpos[3], valpos[4]
 			thetachange -= pi / 2;	
-
+		print valpos
+		if (valpos[1] < .07):
+			return False
+		return True
 		
 	def goTo(self, x, y):
+		print x,y
 		while (dist(self.curX, self.curY, x, y) > self.EPS_XY):
-			
-			self.dataCollandSend();
-			
+			# collect/send evidence grid data
+			can_go = self.dataCollandSend();
+			if (can_go == False): # if about to hit obstacle -> stop
+				break;
 			# Move on to goto
 			self.serialPort.write(self.SENSE) # try and detect landmark
 			retValue = int(self.readString())
