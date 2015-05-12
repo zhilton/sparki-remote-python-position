@@ -1,13 +1,11 @@
 from Sparki import Sparki
 import sys
 import time
-from multiprocessing import Pool, Queue
+from multiprocessing import Pool, Queue, Manager
 from Queue import Empty
-
-#################################################################v
-# Not needed in real code
 import random
-#################################################################^
+import evidencegrid
+
 
 # The scale of the movement, aka how many CMs per 1 grid unit
 # Only used in the current assignTask
@@ -27,8 +25,8 @@ Make some random goals to begin with, one for each Sparki in practice
 """
 def generateInitGoals( number ):
 	for i in xrange(0, number):
-		randX = random.uniform(-MAX_GRID_SIZE, MAX_GRID_SIZE)
-		randY = random.uniform(-MAX_GRID_SIZE, MAX_GRID_SIZE)
+		randX = random.choice([1,-1]) * random.random() /3 * MAX_GRID_SIZE
+		randY = random.choice([1,-1]) * random.random() /3 * MAX_GRID_SIZE
 		goals.put((randX, randY),True)
 
 """
@@ -39,21 +37,28 @@ def assignTask(goal, sparki):
 	# Replace with what you want SParki to do
 	# Don't forget to generate new goals throughout this function in some way
 	# likely by just adding goals at all spots seen in the sweep
-	while( not sparki.go_to( (goal[0] * CM_SCALE), (goal[1]) * CM_SCALE)):
-		pass
+	if( not sparki.connect()):
+		print "Sparki " + sparki.portName + " failed to connect"
+		goals.put(goal, True)
+		return
+
+	sparki.goTo(goal[0],goal[1])
+
 	randX = (random.random() * MAX_GRID_SIZE)
 	randY = (random.random() * MAX_GRID_SIZE)
 
 	new = (randX, randY)
 
-
+	print goal
 	#### Add Goals as found ####
 	goals.put(new, True)
-
+	
 	#################################################################^
 
 	# Free Sparki again
+	sparki.disconnect()
 	sparkis.put(sparki, True)
+	
 
 if __name__ == "__main__":
 
@@ -66,19 +71,22 @@ if __name__ == "__main__":
 		exit()
 
 	sparkis = Queue(len(comPorts))
+	q = Manager().Queue()
+	evidencegrid.launch(0.01, 512, 512, q)
 
-	for com in comPorts:
-		sparki = Sparki(com)
-		if( not sparki.connect()):
-			print "Sparki " + com + " failed to connect"
-			break
+	for i in xrange(len(comPorts)):
+		sparki = Sparki(comPorts[i],q)
+		#if( not sparki.connect()):
+		#	print "Sparki " + comPorts[i] + " failed to connect"
+		#	continue
 		#################################################################v
 		# Set sparkis x and Y here
+		sparki.tellSparkiPos(float(xValues[i]),float(yValues[i]),0)
 		#################################################################^
 		sparkis.put(sparki, True)
 
 	if (sparkis.qsize() == 0):
-		print "No Sparki connected"
+		print "No Sparki given"
 		exit()
 
 	generateInitGoals(sparkis.qsize())
@@ -90,8 +98,8 @@ if __name__ == "__main__":
 		# Not needed in real code though we DO neeed a way to stop mapping
 		# Butler is probably fine with us NOT stopping and jsut doing while true
 		# Randomly forces an end for testing
-		if (random.random() > .95):
-			notMapped = False
+		#if (random.random() > .95):
+		#	notMapped = False
 		#################################################################^
 
 		try:
@@ -100,7 +108,7 @@ if __name__ == "__main__":
 			pass
 		else:
 			goal = goals.get(True)
-			processes.apply_async(assignTask, (goal, sparki) )
+			processes.apply_async(assignTask, (goal, sparki))
 			time.sleep(1)
 
 	# Waits for all Sparkis to finish
@@ -108,6 +116,6 @@ if __name__ == "__main__":
 	processes.join()
 
 	# Disconnect all Sparkis
-	for i in xrange(0, sparkis.qsize()):
-		sparki = sparkis.get()
-		sparki.disconnect()
+	#for i in xrange(0, sparkis.qsize()):
+	#	sparki = sparkis.get()
+	#	sparki.disconnect()
